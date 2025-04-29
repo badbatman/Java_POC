@@ -20,7 +20,7 @@ public class MemoryLoader {
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
     public static void main(String[] args) throws InterruptedException {
-        String jsonInput = "{\"mUsage\": \"2000M\", \"period\": 30}";
+        String jsonInput = "{\"mUsage\": \"2500M\", \"period\": 30}";
 
         // Simulate receiving a request
         handleRequest(jsonInput);
@@ -42,15 +42,17 @@ public class MemoryLoader {
         releaseCurrentMemory(); // Release any existing memory
 
         System.out.println("Allocating " + requestedSizeMB + " MB memory for " + periodSeconds + " seconds");
-
+        scheduleUsageReporting();
         List<byte[]> memoryChunks = new ArrayList<>();
         try {
             // Allocate in ~1MB chunks
             int chunkCount = (int) requestedSizeMB;
             for (int i = 0; i < chunkCount; i++) {
-                byte[] chunk = new byte[1024 * 1024]; // 1MB
+                byte[] chunk = new byte[ 1000*1000]; // 1MB
                 memoryChunks.add(chunk);
+                chunk=null;
             }
+            memoryChunks = null;
             memoryHolder.set(memoryChunks);
             currentAllocationSizeInBytes = requestedSizeBytes;
         } catch (OutOfMemoryError e) {
@@ -62,7 +64,7 @@ public class MemoryLoader {
         reportMemoryUsage("After allocation");
 
         scheduleMemoryRelease(periodSeconds);
-        scheduleUsageReporting();
+        
     }
 
     private static void releaseCurrentMemory() {
@@ -84,10 +86,11 @@ public class MemoryLoader {
     private static void scheduleUsageReporting() {
         scheduler.scheduleAtFixedRate(() -> {
             Runtime runtime = Runtime.getRuntime();
+           
             long used = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-            long allocatedByLoader = currentAllocationSizeInBytes / (1024 * 1024);
+           
 
-            System.out.printf("JVM used: %d MB | Loader held: %d MB%n", used, allocatedByLoader);
+            System.out.printf("JVM total: %d MB | free memory: %d MB | used memory: %d MB%n", runtime.totalMemory()/ (1024 * 1024), runtime.freeMemory()/ (1024 * 1024),used);
         }, 0, REPORT_INTERVAL_SECONDS, TimeUnit.SECONDS);
     }
 
